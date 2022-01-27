@@ -1,5 +1,6 @@
 //! Source file for the binary.
 
+use std::env;
 use std::fs::{create_dir, read_dir};
 #[cfg(not(target_os = "windows"))]
 use std::fs::{set_permissions, File};
@@ -17,7 +18,7 @@ use project_init::args::{Args, Subcommands};
 use project_init::render::*;
 use project_init::types::*;
 use project_init::*;
-use rustache::*;
+use rustache::{HashBuilder, VecBuilder};
 use tempdir::TempDir;
 use text_io::read;
 
@@ -36,10 +37,13 @@ fn mk_executable<P: AsRef<Path>>(p: P) {
 #[cfg(target_os = "windows")]
 fn mk_executable<P: AsRef<Path>>(_: P) {}
 
-#[allow(clippy::cognitive_complexity)]
-#[allow(clippy::print_literal)]
-fn main() {
-    let cargo_manifest = Manifest::from_path("./cargo.toml").unwrap();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cargo_toml_path = env::current_dir()?;
+
+    cargo_toml_path.push("cargo.toml");
+
+    let cargo_manifest = Manifest::from_path(&cargo_toml_path).unwrap();
+
     let version = match cargo_manifest.package {
         Some(package) => package.version,
         None => "unknown".to_string(),
@@ -499,4 +503,6 @@ fn main() {
             )
         }
     }
+
+    Ok(())
 }
