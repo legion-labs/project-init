@@ -40,7 +40,7 @@ fn mk_executable<P: AsRef<Path>>(_: P) {}
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cargo_toml_path = env::current_dir()?;
 
-    cargo_toml_path.push("cargo.toml");
+    cargo_toml_path.push("../cargo.toml");
 
     let cargo_manifest = Manifest::from_path(&cargo_toml_path).unwrap();
 
