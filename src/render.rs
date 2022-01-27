@@ -1,7 +1,5 @@
 //! Module containing functions for rendering templates
-extern crate rustache;
 
-use self::rustache::*;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -10,9 +8,11 @@ use std::io::Cursor;
 use std::os::unix::fs::PermissionsExt;
 use std::process::*;
 
+use rustache::*;
+
 /// Trait allowing us to create dirs/templates/files.
 pub trait Create {
-    fn create_dirs(&self, name: &str) -> ();
+    fn create_dirs(&self, name: &str);
 }
 
 /// Render a list of directories, substituting in templates
@@ -90,11 +90,11 @@ pub fn render_templates(
     if let Some(t) = templates_pre {
         // create Vec<T> of paths to templates
         let templates: Vec<String> = t
-            .into_iter()
+            .iter()
             .map(|file| {
                 let mut p = project.to_string();
                 p.push('/');
-                p.push_str(&file);
+                p.push_str(file);
                 if executable {
                     p.push_str(".bat");
                 }
@@ -104,7 +104,7 @@ pub fn render_templates(
 
         // read all the template files
         let template_files: Vec<String> = templates
-            .into_iter()
+            .iter()
             .map(|p| {
                 let template_f_pre = File::open(&p);
                 let mut t = String::new();
@@ -123,37 +123,38 @@ pub fn render_templates(
 
         // create Vec<T> of paths to rendered templates
         let templates_new: Vec<String> = t
-            .into_iter()
+            .iter()
             .map(|file| {
                 let mut p = name.to_string();
                 p.push('/');
-                p.push_str(&file);
+                p.push_str(file);
                 p
             })
             .collect();
 
         // subtitute into template names
         let templates_named: Vec<String> = templates_new
-            .into_iter()
+            .iter()
             .map(|n| {
                 let mut o = Cursor::new(Vec::new());
-                hash.render(&n, &mut o).unwrap();
+                hash.render(n, &mut o).unwrap();
                 String::from_utf8(o.into_inner()).unwrap()
             })
             .collect();
 
         // render all the template files
         let s: Vec<String> = template_files
-            .into_iter()
+            .iter()
             .map(|file| {
                 let mut o = Cursor::new(Vec::new());
-                hash.render(&file, &mut o).unwrap();
+                hash.render(file, &mut o).unwrap();
                 String::from_utf8(o.into_inner()).unwrap()
             })
             .collect();
 
         // write the rendered templates
         let files_to_write = templates_named.iter().zip(s.iter());
+
         let _ = files_to_write
             .into_iter()
             .map(|(path, contents)| {
@@ -243,6 +244,7 @@ pub fn render_templates(
 
         // write the rendered templates
         let files_to_write = templates_named.iter().zip(s.iter());
+
         let _ = files_to_write
             .map(|(path, contents)| {
                 let c = File::create(&path);
@@ -299,14 +301,17 @@ pub fn render_file(static_template: &'static str, name: &str, filename: &str, ha
     p.push_str(filename);
 
     // write the rendered template
-    let c = File::create(&p);
-    if let Ok(mut f) = c {
-        let _ = f.write(contents.as_bytes());
-    } else {
-        eprintln!(
+    match File::create(&p) {
+        Ok(mut f) => {
+            let _ = f.write(contents.as_bytes());
+        }
+        Err(_) => {
+            eprintln!(
             "Failed to create file: {:?}. Check that the directory is included in your template.toml",
             p
         );
-        exit(0x0f01);
+
+            exit(0x0f01);
+        }
     }
 }

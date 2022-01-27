@@ -1,32 +1,19 @@
 //! This library provides the functions/structs/methods used by the main
 //! binary. They are included
 //! here in the hopes that they can be illuminating to users.
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::cognitive_complexity)]
 
-extern crate case;
-extern crate clap;
-extern crate colored;
-extern crate git2;
-extern crate heck;
-extern crate rustache;
-#[macro_use]
-extern crate serde_derive;
-extern crate tempdir;
-extern crate time;
-extern crate toml;
-
-use case::*;
-use colored::*;
-use heck::*;
-use rustache::{HashBuilder, VecBuilder};
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::path::PathBuf;
+
+use case::*;
+use colored::*;
+use heck::ToUpperCamelCase;
+use rustache::{HashBuilder, VecBuilder};
 use toml::Value::Table;
 
+pub mod args;
 pub mod includes;
 pub mod render;
 pub mod repo;
@@ -36,67 +23,76 @@ pub mod types;
 /// directories/templates.
 /// If no such file is found, read from global template directory in
 /// `$HOME/.pi_templates/`.
-pub fn read_toml_dir(template_path: &str, home: PathBuf) -> (types::Project, bool) {
-    let (mut template_file, is_global_template) = if let Ok(f) = File::open(&template_path) {
-        (f, false)
-    } else if let Ok(f) = {
-        let mut p = home;
-        p.push(".pi_templates/");
-        p.push(template_path);
-        File::open(p)
-    } {
-        (f, true)
-    } else {
-        println!(
-            "{}: File {:?} could not be opened. Check that it exists.",
-            "Error".red(),
-            template_path
-        );
-        std::process::exit(0x0f00);
+pub fn read_toml_dir<TP: AsRef<Path>, HP: AsRef<Path>>(
+    template_path: TP,
+    home: HP,
+) -> (types::Project, bool) {
+    let (mut template_file, is_global_template) = match File::open(&template_path) {
+        Ok(file) => (file, false),
+        Err(_) => {
+            let mut p = home.as_ref().to_path_buf();
+            p.push(".pi_templates/");
+            p.push(&template_path);
+
+            match File::open(p) {
+                Ok(file) => (file, true),
+                Err(_) => {
+                    println!(
+                        "{}: File {:?} could not be opened. Check that it exists.",
+                        "Error".red(),
+                        template_path.as_ref()
+                    );
+                    std::process::exit(0x0f00);
+                }
+            }
+        }
     };
+
     let mut template = String::new();
+
     template_file
         .read_to_string(&mut template)
         .expect("Failed to read file"); // we can panic because we already errored if the file didn't exist.
+
     (read_toml_str(&template, template_path), is_global_template)
 }
 
 /// Read a string containing a toml file
-pub fn read_toml_str(template: &str, template_path: &str) -> types::Project {
-    let extract = toml::from_str(template);
-    if let Ok(t) = extract {
-        t
-    } else if let Err(e) = extract {
-        println!("Error parsing {:?}: {}", template_path, e);
-        std::process::exit(0x0f00);
-    } else {
-        std::process::exit(0x0f00);
+pub fn read_toml_str<P: AsRef<Path>>(template: &str, template_path: P) -> types::Project {
+    match toml::from_str(template) {
+        Ok(t) => t,
+        Err(e) => {
+            println!("Error parsing {:?}: {}", template_path.as_ref(), e);
+            std::process::exit(0x0f00);
+        }
     }
 }
 
-/// Given a `PathBuf`, read the .toml file there as a configuration file.
-pub fn read_toml_config(config_path: &std::path::PathBuf) -> types::Config {
-    let file = if let Ok(f) = File::open(&config_path) {
-        Some(f)
-    } else {
-        println!(
-            "{}: File {:?} could not be opened. Check that it exists.",
-            "Warning".yellow(),
-            config_path
-        );
-        None
+/// Given a `Path`, read the .toml file there as a configuration file.
+pub fn read_toml_config<P: AsRef<Path>>(config_path: P) -> types::Config {
+    let file = match File::open(&config_path) {
+        Ok(file) => Some(file),
+        Err(_) => {
+            println!(
+                "{}: File {:?} could not be opened. Check that it exists.",
+                "Warning".yellow(),
+                config_path.as_ref()
+            );
+            None
+        }
     };
+
     let mut toml_str = String::new();
-    let maybe_file = file.map(|mut x| x.read_to_string(&mut toml_str));
-    let extract = toml::from_str(&toml_str);
-    if maybe_file.is_some() && maybe_file.unwrap().is_ok() {
-        if let Ok(t) = extract {
-            t
-        } else if let Err(e) = extract {
-            println!("Error parsing {:?}: {}", config_path, e);
-            std::process::exit(0x0f00);
-        } else {
-            std::process::exit(0x0f00);
+
+    let maybe_file = file.and_then(|mut f| f.read_to_string(&mut toml_str).ok());
+
+    if maybe_file.is_some() {
+        match toml::from_str(&toml_str) {
+            Ok(t) => t,
+            Err(e) => {
+                println!("Error parsing {:?}: {}", config_path.as_ref(), e);
+                std::process::exit(0x0f00);
+            }
         }
     } else {
         eprintln!(
@@ -112,8 +108,9 @@ pub fn read_toml_config(config_path: &std::path::PathBuf) -> types::Config {
     }
 }
 
-pub fn init_helper(
-    home: PathBuf,
+#[allow(clippy::too_many_arguments)]
+pub fn init_helper<P: AsRef<Path>>(
+    home: P,
     project_dir: &str,
     decoded: types::Config,
     author: types::Author,
@@ -125,13 +122,16 @@ pub fn init_helper(
     is_global_project: bool,
 ) {
     let project = if is_global_project {
-        let mut p = home;
+        let mut p = home.as_ref().to_path_buf();
+
         p.push(".pi_templates/");
         p.push(project_dir);
-        p.to_str().unwrap().to_string()
+
+        p.to_string_lossy().into_owned()
     } else {
         project_dir.to_string()
     };
+
     let parsed_dirs = parsed_toml.files;
     let parsed_config = parsed_toml.config;
 
@@ -161,57 +161,48 @@ pub fn init_helper(
             }
         }
         else {
-            (None,"")
+            (None, "")
         };
 
     // set version
-    let version = if let Some(config) = parsed_config.clone() {
-        if let Some(v) = config.version {
-            v
-        } else {
+    let version = match parsed_config.clone().and_then(|c| c.version) {
+        Some(v) => v,
+        None => {
+            eprintln!(
+                "{}: no version info found, defaulting to '0.1.0'",
+                "Warning".yellow()
+            );
             "0.1.0".to_string()
         }
-    } else {
-        eprintln!(
-            "{}: no version info found, defaulting to '0.1.0'",
-            "Warning".yellow()
-        );
-        "0.1.0".to_string()
     };
 
     // set github username to null if it's not provided
-    let github_username = if let Some(uname) = author.github_username {
-        uname
-    } else {
-        eprintln!(
-            "{}: no github username found, defaulting to null",
-            "Warning".yellow()
-        );
-        "".to_string()
+    let github_username = match author.github_username {
+        Some(uname) => uname,
+        None => {
+            eprintln!(
+                "{}: no github username found, defaulting to null",
+                "Warning".yellow()
+            );
+            "".to_string()
+        }
     };
 
     // make user_keys into a vector; prepare to insert them into the `HashBuilder`
-    let user_keys = if let Some(u) = parsed_toml.user {
-        match u.toml {
-            Table(t) => Some(t),
-            _ => None,
-        }
-    } else {
-        None
+    let user_keys = match parsed_toml.user.map(|u| u.toml) {
+        Some(Table(t)) => Some(t),
+        _ => None,
     };
 
     // make user_keys into a vector; prepare to insert them into the `HashBuilder`
-    let user_keys_global = if let Some(u) = decoded.user {
-        match u.toml {
-            Table(t) => Some(t),
-            _ => None,
-        }
-    } else {
-        None
+    let user_keys_global = match decoded.user.map(|u| u.toml) {
+        Some(Table(t)) => Some(t),
+        _ => None,
     };
 
     // Make a hash for inserting stuff into templates.
     let mut hash = HashBuilder::new();
+
     // project-specific
     if let Some(x) = user_keys {
         for (key, value) in &x {
@@ -220,6 +211,7 @@ pub fn init_helper(
             }
         }
     }
+
     // global
     if let Some(x) = user_keys_global {
         for (key, value) in &x {
@@ -228,11 +220,12 @@ pub fn init_helper(
             }
         }
     }
+
     // add the normal stuff
     hash = hash
         .insert("project", name)
         .insert("Project", name.to_capitalized())
-        .insert("ProjectCamelCase", name.to_camel_case())
+        .insert("ProjectCamelCase", name.to_upper_camel_case())
         .insert("year", year)
         .insert("name", author.name)
         .insert("version", version)
@@ -252,16 +245,17 @@ pub fn init_helper(
 
     // create directories
     let _ = fs::create_dir(name);
+
     if let Some(dirs_pre) = parsed_dirs.directories {
         render::render_dirs(dirs_pre, &hash, name);
     }
 
     // create a list of files contained in the project, and create those files.
     // TODO should include templates/scripts/etc.
-    let files = if let Some(files_pre) = parsed_dirs.files {
-        render::render_files(files_pre, &hash, name) // FIXME files need to have a newline insert in between them?
-    } else {
-        VecBuilder::new()
+    let files = match parsed_dirs.files {
+        // FIXME files need to have a newline insert in between them?
+        Some(files_pre) => render::render_files(files_pre, &hash, name),
+        None => VecBuilder::new(),
     };
 
     // create license if it was asked for
