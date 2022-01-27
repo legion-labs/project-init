@@ -154,6 +154,7 @@ pub fn render_templates(
 
         // write the rendered templates
         let files_to_write = templates_named.iter().zip(s.iter());
+
         let _ = files_to_write
             .into_iter()
             .map(|(path, contents)| {
@@ -243,6 +244,7 @@ pub fn render_templates(
 
         // write the rendered templates
         let files_to_write = templates_named.iter().zip(s.iter());
+
         let _ = files_to_write
             .map(|(path, contents)| {
                 let c = File::create(&path);
@@ -299,14 +301,17 @@ pub fn render_file(static_template: &'static str, name: &str, filename: &str, ha
     p.push_str(filename);
 
     // write the rendered template
-    let c = File::create(&p);
-    if let Ok(mut f) = c {
-        let _ = f.write(contents.as_bytes());
-    } else {
-        eprintln!(
+    match File::create(&p) {
+        Ok(mut f) => {
+            let _ = f.write(contents.as_bytes());
+        }
+        Err(_) => {
+            eprintln!(
             "Failed to create file: {:?}. Check that the directory is included in your template.toml",
             p
         );
-        exit(0x0f01);
+
+            exit(0x0f01);
+        }
     }
 }
