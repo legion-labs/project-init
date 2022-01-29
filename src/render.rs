@@ -6,312 +6,320 @@ use std::io::prelude::*;
 use std::io::Cursor;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::PermissionsExt;
-use std::process::*;
+use std::path::{Path, PathBuf};
 
+use os_str_bytes::OsStrBytes;
 use rustache::*;
+use tracing::error;
 
 /// Trait allowing us to create dirs/templates/files.
-pub trait Create {
-    fn create_dirs(&self, name: &str);
+trait Create {
+    fn create_dirs<P: AsRef<Path>>(&self, name: P);
+}
+
+/// Create directories given a `Vec<AsRes<Path>>` of directory names
+impl<T: AsRef<Path>> Create for Vec<T> {
+    fn create_dirs<P: AsRef<Path>>(&self, name: P) {
+        self.iter().for_each(|dir| {
+            let subdir = name.as_ref().join(dir);
+
+            let _ = fs::create_dir(subdir);
+        });
+    }
 }
 
 /// Render a list of directories, substituting in templates
-pub fn render_dirs(dirs_pre: Vec<String>, hash: &HashBuilder, name: &str) {
+pub fn render_dirs<D: AsRef<Path>, N: AsRef<Path>>(
+    directories: Vec<D>,
+    hash: &HashBuilder,
+    name: N,
+) {
     // substitute into directory names using templates
-    let dirs: Vec<String> = dirs_pre
+    let directories: Vec<String> = directories
         .into_iter()
         .map(|file| {
-            let mut o = Cursor::new(Vec::new());
-            hash.render(&file, &mut o).unwrap();
-            String::from_utf8(o.into_inner()).unwrap()
+            let mut output = Cursor::new(Vec::new());
+
+            hash.render(&file.as_ref().to_string_lossy(), &mut output)
+                .unwrap();
+
+            String::from_utf8(output.into_inner()).unwrap()
         })
         .collect();
 
-    // create directories
-    dirs.create_dirs(name);
+    directories.create_dirs(name);
 }
 
 /// Create all the files, and return a list of files that have been created
 /// suitable for insertion
 /// into a `HashBuilder`
-pub fn render_files<'a>(files_pre: Vec<String>, hash: &HashBuilder, name: &str) -> VecBuilder<'a> {
+pub fn render_files<'a, D: AsRef<Path>, N: AsRef<Path>>(
+    files: Vec<D>,
+    hash: &HashBuilder,
+    name: N,
+) -> VecBuilder<'a> {
     // render filenames
-    let substitutions: Vec<String> = files_pre
+    let substitutions = files
         .into_iter()
         .map(|file| {
-            let mut o = Cursor::new(Vec::new());
-            hash.render(&file, &mut o).unwrap();
-            String::from_utf8(o.into_inner()).unwrap()
-        })
-        .collect();
+            let mut output = Cursor::new(Vec::new());
 
-    // write files
-    let _ = substitutions
-        .clone()
-        .into_iter()
-        .map(|path| {
-            let mut full_path = name.to_string();
-            full_path.push('/');
-            full_path.push_str(&path);
-            File::create(full_path)
+            hash.render(&file.as_ref().to_string_lossy(), &mut output)
+                .unwrap();
+
+            Path::from_raw_bytes(output.into_inner())
+                .unwrap()
+                .as_ref()
+                .to_path_buf()
         })
-        .count();
+        .collect::<Vec<PathBuf>>();
+
+    // create files
+    substitutions.iter().for_each(|path| {
+        File::create(name.as_ref().join(path)).unwrap();
+    });
 
     // collect filenames
-    let s: Vec<Data> = substitutions.into_iter().map(Data::from).collect();
+    let data: Vec<Data> = substitutions
+        .into_iter()
+        .map(|substitution| Data::from(substitution.to_string_lossy().into_owned()))
+        .collect();
 
     // return a `VecBuilder` object.
-    VecBuilder { data: s }
-}
-
-/// Create directories given a Vec<String> of directory names
-impl<T: ToString> Create for Vec<T> {
-    fn create_dirs(&self, name: &str) {
-        self.iter()
-            .map(|dir| {
-                let mut subdir = name.to_string();
-                subdir.push('/');
-                subdir.push_str(&dir.to_string());
-                fs::create_dir(subdir).unwrap_or(());
-            })
-            .count();
-    }
+    VecBuilder { data }
 }
 
 /// render a `<Vec<String>>` of templates, doing nothing if it's empty.
 #[cfg(target_os = "windows")]
-pub fn render_templates(
-    project: &str,
-    name: &str,
+pub fn render_templates<P: AsRef<Path>, T: AsRef<Path>, N: AsRef<Path>>(
+    project_path: P,
+    name: N,
     hash: &HashBuilder,
-    templates_pre: Option<Vec<String>>,
+    templates: Option<Vec<T>>,
     executable: bool,
 ) {
-    if let Some(t) = templates_pre {
+    if let Some(original_templates) = templates {
         // create Vec<T> of paths to templates
-        let templates: Vec<String> = t
+        let templates = original_templates
             .iter()
             .map(|file| {
-                let mut p = project.to_string();
-                p.push('/');
-                p.push_str(file);
+                let mut path = project_path.as_ref().join(file);
+
                 if executable {
-                    p.push_str(".bat");
+                    path = path.join(".bat");
                 }
-                p
+
+                path
             })
-            .collect();
+            .collect::<Vec<PathBuf>>();
 
         // read all the template files
-        let template_files: Vec<String> = templates
+        let template_files = templates
             .iter()
-            .map(|p| {
-                let template_f_pre = File::open(&p);
-                let mut t = String::new();
-                let mut template_f = if let Ok(f) = template_f_pre {
-                    f
-                } else {
-                    eprintln!("Failed to open file: {:?}", p);
-                    exit(0x0f00);
+            .map(|path| {
+                let mut template_file = match File::open(&path) {
+                    Ok(template_file) => template_file,
+                    Err(_) => {
+                        error!("Failed to open file: {:?}", path);
+
+                        std::process::exit(0x0f00);
+                    }
                 };
-                template_f
-                    .read_to_string(&mut t)
-                    .expect("File read failed."); // ok to panic because we already errored.
-                t
+
+                let mut template = String::new();
+
+                template_file
+                    .read_to_string(&mut template)
+                    // ok to panic because we already errored.
+                    .expect("File read failed");
+
+                template
             })
-            .collect();
+            .collect::<Vec<String>>();
 
         // create Vec<T> of paths to rendered templates
-        let templates_new: Vec<String> = t
+        let templates_new = original_templates
             .iter()
-            .map(|file| {
-                let mut p = name.to_string();
-                p.push('/');
-                p.push_str(file);
-                p
-            })
-            .collect();
+            .map(|file| name.as_ref().join(file))
+            .collect::<Vec<PathBuf>>();
 
         // subtitute into template names
-        let templates_named: Vec<String> = templates_new
+        let templates_named = templates_new
             .iter()
-            .map(|n| {
-                let mut o = Cursor::new(Vec::new());
-                hash.render(n, &mut o).unwrap();
-                String::from_utf8(o.into_inner()).unwrap()
+            .map(|name| {
+                let mut output = Cursor::new(Vec::new());
+
+                hash.render(&name.to_string_lossy(), &mut output).unwrap();
+
+                Path::from_raw_bytes(output.into_inner())
+                    .unwrap()
+                    .as_ref()
+                    .to_path_buf()
             })
-            .collect();
+            .collect::<Vec<PathBuf>>();
 
         // render all the template files
-        let s: Vec<String> = template_files
+        let substitutions = template_files
             .iter()
             .map(|file| {
-                let mut o = Cursor::new(Vec::new());
-                hash.render(file, &mut o).unwrap();
-                String::from_utf8(o.into_inner()).unwrap()
+                let mut output = Cursor::new(Vec::new());
+
+                hash.render(file, &mut output).unwrap();
+
+                output.into_inner()
+                // Path::from_raw_bytes(output.into_inner()).unwrap().as_ref()
             })
-            .collect();
+            .collect::<Vec<Vec<u8>>>();
 
         // write the rendered templates
-        let files_to_write = templates_named.iter().zip(s.iter());
+        let files_to_write = templates_named.iter().zip(substitutions.iter());
 
-        let _ = files_to_write
+        files_to_write
             .into_iter()
-            .map(|(path, contents)| {
-                let c = File::create(&path);
-                if let Ok(mut f) = c {
-                    let _ = f.write(contents.as_bytes());
-                } else {
-                    eprintln!("Failed to create file: {:?}. Check that the directory is included in your template.toml", path);
-                    exit(0x0f01);
-                };
-            })
-            .count();
+            .for_each(|(path, contents)| match File::create(&path) {
+                Ok(mut file) => {
+                    let _ = file.write(contents);
+                }
+                Err(_error) => {
+                    error!("Failed to create file: {:?}, check that the directory is included in your template.toml", path);
+
+                    std::process::exit(0x0f01);
+                }
+            });
     }
 }
 
 /// render a `<Vec<String>>` of templates, doing nothing if it's empty.
 #[cfg(not(target_os = "windows"))]
-pub fn render_templates(
-    project: &str,
-    name: &str,
+pub fn render_templates<P: AsRef<Path>, T: AsRef<Path>, N: AsRef<Path>>(
+    project_path: P,
+    name: N,
     hash: &HashBuilder,
-    templates_pre: Option<Vec<String>>,
+    templates: Option<Vec<T>>,
     executable: bool,
 ) {
-    if let Some(t) = templates_pre {
+    if let Some(original_templates) = templates {
         // create Vec<T> of paths to templates
-        let templates: Vec<String> = t
-            .clone()
-            .into_iter()
-            .map(|file| {
-                let mut p = project.to_string();
-                p.push('/');
-                p.push_str(&file);
-                p
-            })
-            .collect();
+        let templates = original_templates
+            .iter()
+            .map(|file| project_path.as_ref().join(file))
+            .collect::<Vec<PathBuf>>();
 
         // read all the template files
-        let template_files: Vec<String> = templates
-            .into_iter()
-            .map(|p| {
-                let template_f_pre = File::open(&p);
-                let mut t = String::new();
-                let mut template_f = if let Ok(f) = template_f_pre {
-                    f
-                } else {
-                    eprintln!("Failed to open file: {:?}", p);
-                    exit(0x0f01);
+        let template_files = templates
+            .iter()
+            .map(|path| {
+                let mut template_file = match File::open(&path) {
+                    Ok(template_file) => template_file,
+                    Err(_) => {
+                        error!("Failed to open file: {:?}", path);
+
+                        std::process::exit(0x0f00);
+                    }
                 };
-                template_f
-                    .read_to_string(&mut t)
-                    .expect("File read failed."); // ok to panic because we already errored.
-                t
+
+                let mut template = String::new();
+
+                template_file
+                    .read_to_string(&mut template)
+                    // ok to panic because we already errored.
+                    .expect("File read failed");
+
+                template
             })
-            .collect();
+            .collect::<Vec<String>>();
 
         // create Vec<T> of paths to rendered templates
-        let templates_new: Vec<String> = t
-            .into_iter()
-            .map(|file| {
-                let mut p = name.to_string();
-                p.push('/');
-                p.push_str(&file);
-                p
-            })
-            .collect();
+        let templates_new = original_templates
+            .iter()
+            .map(|file| name.as_ref().join(file))
+            .collect::<Vec<PathBuf>>();
 
         // subtitute into template names
-        let templates_named: Vec<String> = templates_new
-            .into_iter()
-            .map(|n| {
-                let mut o = Cursor::new(Vec::new());
-                hash.render(&n, &mut o).unwrap();
-                String::from_utf8(o.into_inner()).unwrap()
+        let templates_named = templates_new
+            .iter()
+            .map(|name| {
+                let mut output = Cursor::new(Vec::new());
+
+                hash.render(&name.to_string_lossy(), &mut output).unwrap();
+
+                Path::from_raw_bytes(output.into_inner())
+                    .unwrap()
+                    .as_ref()
+                    .to_path_buf()
             })
-            .collect();
+            .collect::<Vec<PathBuf>>();
 
         // render all the template files
-        let s: Vec<String> = template_files
-            .into_iter()
+        let substitutions = template_files
+            .iter()
             .map(|file| {
-                let mut o = Cursor::new(Vec::new());
-                hash.render(&file, &mut o).unwrap();
-                String::from_utf8(o.into_inner()).unwrap()
+                let mut output = Cursor::new(Vec::new());
+
+                hash.render(file, &mut output).unwrap();
+
+                output.into_inner()
+                // Path::from_raw_bytes(output.into_inner()).unwrap().as_ref()
             })
-            .collect();
+            .collect::<Vec<Vec<u8>>>();
 
         // write the rendered templates
-        let files_to_write = templates_named.iter().zip(s.iter());
+        let files_to_write = templates_named.iter().zip(substitutions.iter());
 
-        let _ = files_to_write
-            .map(|(path, contents)| {
-                let c = File::create(&path);
-                if let Ok(mut f) = c {
-                    let _ = f.write(contents.as_bytes());
-                } else {
-                    eprintln!("Failed to create file: {:?}. Check that the directory is included in your template.toml", path);
-                    exit(0x0f01);
-                };
+        files_to_write
+            .into_iter()
+            .for_each(|(path, contents)| match File::create(&path) {
+                Ok(mut file) => {
+                    let _ = file.write(contents);
 
-                if executable {
-                    let mut p = fs::metadata(path)
-                        .expect("failed to read file metadata")
-                        .permissions();
-                    p.set_mode(0o755);
-                    let _ = fs::set_permissions(path, p);
-                };
-            })
-            .count();
+                    if executable {
+                        let mut permissions = fs::metadata(path)
+                            .expect("failed to read file metadata")
+                            .permissions();
+
+                        permissions.set_mode(0o755);
+
+                        let _ = fs::set_permissions(path, permissions);
+                    };
+                }
+                Err(_error) => {
+                    error!("Failed to create file: {:?}, check that the directory is included in your template.toml", path);
+
+                    std::process::exit(0x0f01);
+                }
+            });
     }
 }
 
-/// Function to write a file from a static string
-pub fn create_file(static_contents: &'static str, name: &str, filename: &str) {
-    let mut p = name.to_string();
-    p.push('/');
-    p.push_str(filename);
-    let mut c = File::create(p).expect("File creation failed."); // ok to panic because this is for built-ins.
-    let _ = c.write(static_contents.as_bytes());
-}
-
-/// Write a file from a static string
-pub fn write_file_plain(static_contents: &'static str, name: &str, filename: &str) {
-    // write the file
-    let mut p = name.to_string();
-    p.push('/');
-    p.push_str(filename);
-
-    // write the rendered template
-    let mut c = File::create(p).expect("File creation failed."); // ok to panic because this is for built-ins.
-    let _ = c.write(static_contents.as_bytes());
-}
-
 /// Render a static string and write it to file
-pub fn render_file(static_template: &'static str, name: &str, filename: &str, hash: &HashBuilder) {
+pub fn render_file<N: AsRef<Path>>(
+    static_template: &str,
+    name: N,
+    filename: &str,
+    hash: &HashBuilder,
+) {
     // render the template
-    let mut o = Cursor::new(Vec::new());
-    hash.render(static_template, &mut o).unwrap();
-    let contents = String::from_utf8(o.into_inner()).unwrap();
+    let mut output = Cursor::new(Vec::new());
+
+    hash.render(static_template, &mut output).unwrap();
+
+    let contents = String::from_utf8(output.into_inner()).unwrap();
 
     // write the file
-    let mut p = name.to_string();
-    p.push('/');
-    p.push_str(filename);
+    let path = name.as_ref().join(filename);
 
     // write the rendered template
-    match File::create(&p) {
-        Ok(mut f) => {
-            let _ = f.write(contents.as_bytes());
+    match File::create(&path) {
+        Ok(mut file) => {
+            let _ = file.write(contents.as_bytes());
         }
         Err(_) => {
-            eprintln!(
-            "Failed to create file: {:?}. Check that the directory is included in your template.toml",
-            p
-        );
+            error!(
+                "Failed to create file: {:?}. Check that the directory is included in your template.toml",
+                path
+            );
 
-            exit(0x0f01);
+            std::process::exit(0x0f01);
         }
     }
 }

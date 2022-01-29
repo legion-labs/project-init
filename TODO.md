@@ -10,8 +10,8 @@
     - [ ] test
     - [ ] builtin
 - [x] add keys
-  - [x] full date 
-  - [x] user-defined keys (under [[user]])
+  - [x] full date
+  - [x] user-defined keys (under [[custom_keys]])
     - [ ] user-define arrays
     - [ ] put in README
 - [x] ask before overwriting directories
@@ -24,4 +24,4 @@
 - [ ] nice CI for rust package
 - [x] update command
 - [ ] command to prompt users through, and generate a `$HOME/.pi.toml`
-  automatically.
+      automatically.

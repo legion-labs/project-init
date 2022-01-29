@@ -1,34 +1,16 @@
 use std::process::Command;
 
-use colored::*;
+use tracing::error;
 
 pub fn git_init(name: &str) {
-    let mut cmd = "cd ".to_string();
+    if git2::Repository::init(name).is_err() {
+        error!("Git failed to initialize, is it in your path?");
 
-    cmd.push_str(name);
-    cmd.push_str("&&");
-    cmd.push_str("git init && git add *");
-
-    match Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
-        .stdout(std::process::Stdio::null())
-        .spawn()
-    {
-        Ok(c) => {
-            c.wait_with_output().expect("failed to wait on child");
-        }
-        Err(_) => {
-            eprintln!(
-                "{}, git failed to initialize. Is git on your path?",
-                "Error".red()
-            );
-
-            std::process::exit(0x0f01);
-        }
+        std::process::exit(0x0f01);
     }
 }
 
+// FIXME: This function doesn't work on Windows
 pub fn pijul_init(name: &str) {
     let mut cmd = "cd ".to_string();
 
@@ -42,20 +24,18 @@ pub fn pijul_init(name: &str) {
         .stdout(std::process::Stdio::null())
         .spawn()
     {
-        Ok(c) => {
-            c.wait_with_output().expect("failed to wait on child");
+        Ok(child) => {
+            child.wait_with_output().expect("failed to wait on child");
         }
-        Err(_) => {
-            eprintln!(
-                "{}, Pijul failed to initialize. Is it on your path?",
-                "Error".red()
-            );
+        Err(_error) => {
+            error!("Pijul failed to initialize, is it in your path?");
 
             std::process::exit(0x0f01);
         }
     }
 }
 
+// FIXME: This function doesn't work on Windows
 pub fn darcs_init(name: &str) {
     let mut cmd = "cd ".to_string();
 
@@ -69,20 +49,18 @@ pub fn darcs_init(name: &str) {
         .stdout(std::process::Stdio::null())
         .spawn()
     {
-        Ok(c) => {
-            c.wait_with_output().expect("failed to wait on child");
+        Ok(child) => {
+            child.wait_with_output().expect("failed to wait on child");
         }
-        Err(_) => {
-            eprintln!(
-                "{}, Darcs failed to initialize. Is hg on your path?",
-                "Error".red()
-            );
+        Err(_error) => {
+            error!("Darcs failed to initialize, is it in your path?");
 
             std::process::exit(0x0f01);
         }
     }
 }
 
+// FIXME: This function doesn't work on Windows
 pub fn hg_init(name: &str) {
     let mut cmd = "cd ".to_string();
 
@@ -96,14 +74,11 @@ pub fn hg_init(name: &str) {
         .stdout(std::process::Stdio::null())
         .spawn()
     {
-        Ok(c) => {
-            c.wait_with_output().expect("failed to wait on child");
+        Ok(child) => {
+            child.wait_with_output().expect("failed to wait on child");
         }
-        Err(_) => {
-            eprintln!(
-                "{}, Mercurial failed to initialize. Is it on your path?",
-                "Error".red()
-            );
+        Err(_error) => {
+            error!("Mercurial failed to initialize, is it in your path?");
 
             std::process::exit(0x0f01);
         }

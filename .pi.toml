@@ -7,5 +7,5 @@ name = "Vanessa McHale"
 email = "vamchale@gmail.com"
 github_username = "vmchale"
 
-[[user]]
+[[custom_keys]]
 website = "https://vmchale.com"

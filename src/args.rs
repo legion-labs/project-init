@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Subcommand, Debug)]
@@ -7,42 +9,21 @@ pub enum Subcommands {
     Git {
         /// User and repository name where the template is located
         #[clap(value_name = "USER/REPO")]
-        repo: String,
+        repository: String,
         /// Project name to be used for project directory.
         #[clap(value_name = "NAME")]
         name: String,
         /// Initialize project even if directory already exists.
-        #[clap(long, short)]
-        force: bool,
-    },
-    /// List available templates. User templates can be added by placing them in ~/.pi_templates
-    #[clap(alias = "l")]
-    List,
-    /// Update pi (only works on UNIX).
-    #[clap(alias = "u")]
-    Update {
-        /// Force installation even when binary already exists.
         #[clap(long, short)]
         force: bool,
     },
     /// Use a template from a folder.
-    #[clap(alias = "i")]
-    Init {
-        /// Directory containing your template, either in the current directory or in $HOME/.pi_templates/
-        #[clap(value_name = "TEMPLATE_DIR")]
-        directory: String,
-        /// Project name to be used for project directory.
-        #[clap(value_name = "NAME")]
-        name: String,
-        /// Initialize project even if directory already exists.
-        #[clap(long, short)]
-        force: bool,
-    },
-    /// Use a built-in template.
     #[clap(alias = "n")]
     New {
-        /// Template to used. Currently supported are Rust, Haskell, Idris, Elm, Python, Vimscript, Miso, and Julia.
-        template: String,
+        /// Directory containing your template, either in the current directory or in $HOME/.pi_templates/
+        #[clap(value_name = "TEMPLATE_DIR")]
+        directory: PathBuf,
+        // TODO: We should probably disambiguate between the name and the output dir at one point
         /// Project name to be used for project directory.
         #[clap(value_name = "NAME")]
         name: String,
