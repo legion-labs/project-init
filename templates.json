@@ -1,0 +1,7 @@
+[
+  {
+    "name": "hello-node",
+    "repository": "https://github.com/kevin-legion/hello-js-template",
+    "description": "A simple hello world template for Node"
+  }
+]

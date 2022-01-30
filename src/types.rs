@@ -4,18 +4,18 @@ use std::{
     borrow::Cow,
     fmt::Display,
     fs::File,
-    io::Read,
+    io::{BufReader, Read},
     path::{Path, PathBuf},
 };
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer};
+use serde_derive::Serialize;
 use text_io::read;
 use toml::value::Value;
 use tracing::{error, warn};
+use url::Url;
 
-const TEMPLATE_FILENAME: &str = "template.toml";
-
-const GLOBAL_TEMPLATE_DIRECTORY: &str = ".pi_templates";
+use crate::constants::{GLOBAL_TEMPLATE_DIRECTORY, TEMPLATE_FILENAME};
 
 /// Struct for the author. This is read from the global
 /// configuration that resides at $HOME/.pi.toml
@@ -55,6 +55,7 @@ impl Author {
 
 impl Default for Author {
     fn default() -> Self {
+        // TODO: Very likely not the good thing to do...
         Author::read_input()
     }
 }
@@ -84,6 +85,104 @@ impl Display for VersionControl {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TemplateRepositoryEntry {
+    pub name: String,
+    pub repository: Url,
+    pub description: String,
+}
+
+impl Display for TemplateRepositoryEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} -- {}: {}",
+            self.repository.path().get(1..).unwrap(),
+            self.name,
+            self.description
+        )
+    }
+}
+
+#[derive(Debug)]
+pub enum TemplateRepository {
+    Url(Url),
+    Path(PathBuf),
+}
+
+impl Display for TemplateRepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Path(path) => write!(f, "{}", path.to_string_lossy()),
+            Self::Url(url) => write!(f, "{}", url),
+        }
+    }
+}
+
+impl TemplateRepository {
+    fn deserialize<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = match Option::<&str>::deserialize(deserializer) {
+            Ok(Some(value)) => value,
+            Ok(None) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+
+        if let Ok(url) = value.parse::<Url>() {
+            Ok(Some(Self::Url(url)))
+        } else {
+            Ok(Some(Self::Path(Path::new(value).to_path_buf())))
+        }
+    }
+
+    pub async fn read(&self) -> Vec<TemplateRepositoryEntry> {
+        match self {
+            Self::Path(path) => {
+                let file = match File::open(path) {
+                    Ok(file) => file,
+                    Err(_error) => {
+                        warn!("Couldn't find file located in {}", path.to_string_lossy());
+
+                        return Vec::new();
+                    }
+                };
+
+                let reader = BufReader::new(file);
+
+                match serde_json::from_reader(reader) {
+                    Ok(entries) => entries,
+                    Err(error) => {
+                        warn!("Template repository's format is invalid: {}", error);
+
+                        Vec::new()
+                    }
+                }
+            }
+            Self::Url(url) => {
+                let response = match reqwest::get(url.as_str()).await {
+                    Ok(response) => response,
+                    Err(_) => {
+                        warn!("Couldn't access remote template repository {}", url);
+
+                        return Vec::new();
+                    }
+                };
+
+                match response.json().await {
+                    Ok(entries) => entries,
+                    Err(error) => {
+                        warn!("Template repository's format is invalid: {}", error);
+
+                        Vec::new()
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Struct for the global configuration at $HOME/.pi.toml
 #[derive(Debug, Deserialize, Default)]
 pub struct Config {
@@ -91,7 +190,12 @@ pub struct Config {
     #[serde(default)]
     pub author: Author,
     pub license: Option<License>,
+    /// Set of custom keys the user can set in their global configuration file
     pub custom_keys: Option<CustomKeys>,
+    /// A path or url that points to a templates repository file,
+    /// that is a json file listing all the available templates
+    #[serde(default, deserialize_with = "TemplateRepository::deserialize")]
+    pub templates_repository: Option<TemplateRepository>,
 }
 
 impl Config {
@@ -100,7 +204,10 @@ impl Config {
         let mut config_file = match File::open(&config_path) {
             Ok(config_file) => config_file,
             Err(_) => {
-                warn!("File ~/.pi.toml not found, using default configuration");
+                warn!(
+                    "File {} not found, using default configuration",
+                    config_path.as_ref().to_string_lossy()
+                );
 
                 return Self::default();
             }
@@ -109,17 +216,24 @@ impl Config {
         let mut toml_str = String::new();
 
         if config_file.read_to_string(&mut toml_str).is_err() {
-            warn!("File ~/.pi.toml couldn't be read");
+            warn!(
+                "File {} couldn't be read",
+                config_path.as_ref().to_string_lossy()
+            );
 
-            return Self::default();
+            std::process::exit(1);
         };
 
         match toml::from_str(&toml_str) {
             Ok(config) => config,
-            Err(_error) => {
-                warn!("File ~/.pi.toml was not properly formatted, using default configuration");
+            Err(error) => {
+                warn!(
+                    "File {} was not properly formatted: {}",
+                    config_path.as_ref().to_string_lossy(),
+                    error
+                );
 
-                Self::default()
+                std::process::exit(1);
             }
         }
     }

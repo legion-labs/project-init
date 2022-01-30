@@ -31,6 +31,9 @@ pub enum Subcommands {
         #[clap(long, short)]
         force: bool,
     },
+    /// List all the available templates remotely and in the $HOME/.pi_templates/ directory
+    #[clap(alias = "ls")]
+    List,
 }
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None, term_width = 80, after_help = "See 'man pi' for more information")]
