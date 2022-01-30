@@ -1,7 +1,6 @@
 //! This module contains the structs for the configuration files.
 
 use std::{
-    borrow::Cow,
     fmt::Display,
     fs::File,
     io::{BufReader, Read},
@@ -12,14 +11,14 @@ use serde::{Deserialize, Deserializer};
 use serde_derive::Serialize;
 use text_io::read;
 use toml::value::Value;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 use url::Url;
 
 use crate::constants::{GLOBAL_TEMPLATE_DIRECTORY, TEMPLATE_FILENAME};
 
 /// Struct for the author. This is read from the global
 /// configuration that resides at $HOME/.pi.toml
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Author {
     pub name: String,
     pub email: String,
@@ -27,40 +26,25 @@ pub struct Author {
 }
 
 impl Author {
-    pub fn new<'a, N, E>(name: N, email: E) -> Self
-    where
-        N: Into<Cow<'a, str>>,
-        E: Into<Cow<'a, str>>,
-    {
-        Self {
-            name: name.into().into_owned(),
-            email: email.into().into_owned(),
-            github_username: None,
-        }
-    }
-
-    /// Reads terminal input to ask for the name and email to the user
-    pub fn read_input() -> Self {
-        println!("Enter your name");
+    /// Reads terminal input to ask for their name and email to the user
+    pub fn from_input() -> Self {
+        println!("Enter your name:");
 
         let name: String = read!("{}");
 
-        println!("Enter your email");
+        println!("Enter your email address:");
 
         let email: String = read!("{}");
 
-        Author::new(name, email)
+        Author {
+            name,
+            email,
+            github_username: None,
+        }
     }
 }
 
-impl Default for Author {
-    fn default() -> Self {
-        // TODO: Very likely not the good thing to do...
-        Author::read_input()
-    }
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VersionControl {
     Git,
@@ -104,7 +88,7 @@ impl Display for TemplateRepositoryEntry {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum TemplateRepository {
     Url(Url),
     Path(PathBuf),
@@ -184,11 +168,10 @@ impl TemplateRepository {
 }
 
 /// Struct for the global configuration at $HOME/.pi.toml
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     pub version_control: Option<VersionControl>,
-    #[serde(default)]
-    pub author: Author,
+    pub author: Option<Author>,
     pub license: Option<License>,
     /// Set of custom keys the user can set in their global configuration file
     pub custom_keys: Option<CustomKeys>,
@@ -204,8 +187,8 @@ impl Config {
         let mut config_file = match File::open(&config_path) {
             Ok(config_file) => config_file,
             Err(_) => {
-                warn!(
-                    "File {} not found, using default configuration",
+                info!(
+                    "File {} not found, using default configuration, `pi init` to populate a global configuration file",
                     config_path.as_ref().to_string_lossy()
                 );
 
@@ -351,7 +334,7 @@ impl Project {
 }
 
 /// Struct for custom user keys
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CustomKeys {
     pub toml: Value,
 }

@@ -1,6 +1,8 @@
 //! Source file for the binary.
 
 use std::fs::read_dir;
+use std::fs::File;
+use std::io::Write;
 
 use args::Args;
 use args::Subcommands;
@@ -15,6 +17,7 @@ use types::Project;
 use crate::constants::{
     GITHUB_URL, GLOBAL_CONFIG_FILENAME, GLOBAL_TEMPLATE_DIRECTORY, TEMPLATE_FILENAME,
 };
+use crate::types::Author;
 use crate::util::init_helper;
 
 mod args;
@@ -144,6 +147,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("No templates repository found in config")
                 }
             }
+        }
+
+        Subcommands::Init { force, no_prompt } => {
+            let global_config_path = home.join(GLOBAL_CONFIG_FILENAME);
+
+            if !force && global_config_path.is_file() && global_config_path.exists() {
+                println!(
+                    "Configuration file already exists in {}",
+                    global_config_path.to_string_lossy()
+                );
+
+                std::process::exit(0);
+            }
+
+            let mut config = Config::default();
+
+            let author = if no_prompt {
+                Author::default()
+            } else {
+                Author::from_input()
+            };
+
+            config.author = Some(author);
+
+            let mut global_config_file = match File::create(&global_config_path) {
+                Ok(global_config_file) => global_config_file,
+                Err(_error) => {
+                    error!(
+                        "Couldn't create file {}",
+                        global_config_path.to_string_lossy()
+                    );
+
+                    std::process::exit(1);
+                }
+            };
+
+            let config_bytes = toml::to_string(&config).unwrap();
+
+            if global_config_file.write(config_bytes.as_bytes()).is_err() {
+                error!(
+                    "Couldn't write in file {}",
+                    global_config_path.to_string_lossy()
+                );
+
+                std::process::exit(1);
+            }
+
+            println!(
+                "Configuration file created {}",
+                global_config_path.to_string_lossy()
+            );
         }
     }
 

@@ -51,6 +51,12 @@ First, install [cargo](https://rustup.rs/). Then:
 
 ## Use
 
+First, you can initialize a global `$HOME/.pi.toml` configuration file using
+
+```bash
+$ pi init
+```
+
 `pi` reads from `$HOME/.pi_templates/` _and_ your current directory. So, if you
 place a template in the `$HOME/.pi_templates/rust-cli/`, you can initialize a
 project _anywhere_ with

@@ -34,6 +34,16 @@ pub enum Subcommands {
     /// List all the available templates remotely and in the $HOME/.pi_templates/ directory
     #[clap(alias = "ls")]
     List,
+    /// Initialize the global configuration file in $HOME/.pi.toml
+    #[clap(alias = "i")]
+    Init {
+        /// Initialize configuration file if it already exists, replacing it in the process.
+        #[clap(long, short)]
+        force: bool,
+        /// Skip prompts and populate the global configuration file with empty values
+        #[clap(long, short)]
+        no_prompt: bool,
+    },
 }
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None, term_width = 80, after_help = "See 'man pi' for more information")]

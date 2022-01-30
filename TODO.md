@@ -23,11 +23,13 @@
 - [ ] ~~sourceloc and bugtracker should depend on user-selected version control~~
 - [ ] nice CI for rust package
 - [x] update command
-- [ ] command to prompt users through, and generate a `$HOME/.pi.toml` automatically.
+- [x] command to prompt users through, and generate a `$HOME/.pi.toml` automatically.
 - [ ] list command
   - [x] list local templates
   - [x] list remote templates when repository points to a file
   - [x] list remote templates when repository points to an url
-- [ ] cleanup last inconsistencies
 - [ ] use tera instead of rustache?
 - [ ] revamp the files/directories/templates/scripts configuration system
+- [ ] cleanup last inconsistencies
+- [ ] update man generation workflow using clap-man in build.rs
+- [ ] better error handling (anyhow/thiserror, exit codes, etc...)

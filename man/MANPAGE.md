@@ -7,6 +7,10 @@ pi - initialize projects from mustache templates
 
 # SYNOPSIS
 
+pi init [--force] [--no-prompt]
+
+pi list
+
 pi new \<language\> \<directory\> [--force]
 
 pi git \<username\>/\<repo\> [--force]

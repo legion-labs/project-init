@@ -15,7 +15,7 @@ use tracing::{error, warn};
 use crate::includes;
 use crate::render::{render_dirs, render_file, render_files, render_templates};
 use crate::repo::{darcs_init, git_init, hg_init, pijul_init};
-use crate::types::{Config, License, Project, ProjectConfig, VersionControl};
+use crate::types::{Author, Config, License, Project, ProjectConfig, VersionControl};
 
 /// Main orchestrator function.
 ///
@@ -85,12 +85,15 @@ pub fn init_helper(
     };
 
     // set github username to null if it's not provided
-    let github_username = match config.author.github_username {
-        Some(github_username) => github_username,
-        None => {
+    let github_username = match config.author {
+        Some(Author {
+            github_username: Some(ref github_username),
+            ..
+        }) => github_username,
+        _ => {
             warn!("No github username found, defaulting to ''");
 
-            String::new()
+            ""
         }
     };
 
@@ -138,11 +141,20 @@ pub fn init_helper(
         .insert("Project", name.to_capitalized())
         .insert("ProjectCamelCase", name.to_upper_camel_case())
         .insert("year", year)
-        .insert("name", config.author.name)
         .insert("version", version)
-        .insert("email", config.author.email)
         .insert("github_username", github_username)
         .insert("date", formatted_date);
+
+    match config.author {
+        Some(Author { email, name, .. }) => {
+            keys = keys.insert("name", name);
+            keys = keys.insert("email", email);
+        }
+        _ => {
+            keys = keys.insert("name", "");
+            keys = keys.insert("email", "");
+        }
+    };
 
     if let Some(license) = license {
         keys = keys.insert("license", license.to_string())
