@@ -12,6 +12,8 @@ use os_str_bytes::OsStrBytes;
 use rustache::*;
 use tracing::error;
 
+use crate::constants::TEMPLATE_FILENAME;
+
 /// Trait allowing us to create dirs/templates/files.
 trait Create {
     fn create_dirs<P: AsRef<Path>>(&self, name: P);
@@ -181,7 +183,7 @@ pub fn render_templates<P: AsRef<Path>, T: AsRef<Path>, N: AsRef<Path>>(
                     let _ = file.write(contents);
                 }
                 Err(_error) => {
-                    error!("Failed to create file: {:?}, check that the directory is included in your template.toml", path);
+                    error!("Failed to create file: {:?}, check that the directory is included in your {}", path, TEMPLATE_FILENAME);
 
                     std::process::exit(0x0f01);
                 }
@@ -283,7 +285,7 @@ pub fn render_templates<P: AsRef<Path>, T: AsRef<Path>, N: AsRef<Path>>(
                     };
                 }
                 Err(_error) => {
-                    error!("Failed to create file: {:?}, check that the directory is included in your template.toml", path);
+                    error!("Failed to create file: {:?}, check that the directory is included in your {}", path, TEMPLATE_FILENAME);
 
                     std::process::exit(0x0f01);
                 }
@@ -315,8 +317,8 @@ pub fn render_file<N: AsRef<Path>>(
         }
         Err(_) => {
             error!(
-                "Failed to create file: {:?}. Check that the directory is included in your template.toml",
-                path
+                "Failed to create file: {:?}. Check that the directory is included in your {}",
+                path, TEMPLATE_FILENAME
             );
 
             std::process::exit(0x0f01);

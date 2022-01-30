@@ -1,9 +1,11 @@
-extern crate cli_setup;
-
 use cli_setup::*;
 
-pub const MAN_PI: &str = include_str!("man/pi.1");
+const MAN_PI: &str = "man/pi.1";
+
+const MAN_PI_CONTENT: &str = include_str!("man/pi.1");
 
 fn main() {
-    setup_manpages(MAN_PI, "pi");
+    println!("cargo:rerun-if-changed={}", MAN_PI);
+
+    setup_manpages(MAN_PI_CONTENT, "pi");
 }

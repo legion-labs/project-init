@@ -1,4 +1,4 @@
-# project init (pi)
+# Project Init (pi)
 
 [![Build Status](https://travis-ci.org/vmchale/project-init.svg?branch=master)](https://travis-ci.org/vmchale/project-init)
 [![](https://img.shields.io/crates/d/project-init.svg)](https://crates.io/crates/project-init)
@@ -41,52 +41,22 @@ Benchmarks (with Haskell's [bench](https://github.com/Gabriel439/bench)):
 
 ## Installation
 
-### Script
-
-Enter the following in a command prompt:
-
-```
-curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --git vmchale/project-init
-```
-
-### Binary releases
-
-The easiest way for most users is simply to download the prebuilt binaries.
-You can find binaries for various platforms on the
-[release](https://github.com/vmchale/project-init/releases) page.
-
 ### Cargo
 
 First, install [cargo](https://rustup.rs/). Then:
 
 ```bash
- $ cargo install project_init
-```
-
-You will need to use the nightly release for this to work; if in doubt run
-
-```bash
-rustup run nightly cargo install project_init
+ $ cargo install --git https://github.com/legion-labs/project-init
 ```
 
 ## Use
 
 `pi` reads from `$HOME/.pi_templates/` _and_ your current directory. So, if you
-place a template in the `$HOME/.pi_templates/idris/`, you can initialize a
+place a template in the `$HOME/.pi_templates/rust-cli/`, you can initialize a
 project _anywhere_ with
 
 ```bash
- $ pi init idris treesod
-```
-
-There is a repo containing pi templates
-[here](https://github.com/vmchale/pi-templates).
-
-You can also use pi with built-in templates, viz.
-
-```bash
- $ pi new haskell really-good-project
-Finished initializing project in really-good-project/
+ $ pi new rust-cli my-awesome-cli
 ```
 
 Or to fetch a template from github:

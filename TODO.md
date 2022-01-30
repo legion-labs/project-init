@@ -29,3 +29,5 @@
   - [x] list remote templates when repository points to a file
   - [x] list remote templates when repository points to an url
 - [ ] cleanup last inconsistencies
+- [ ] use tera instead of rustache?
+- [ ] revamp the files/directories/templates/scripts configuration system
