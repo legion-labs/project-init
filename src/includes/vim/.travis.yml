@@ -1,9 +1,0 @@
----
-language: python
-cache:
-  directories:
-    - $HOME/.local/lib
-install: pip install vim-vint
-script:
-  - vint syntax/{{ project }}.vim
-  - vint plugin/{{ project }}.vim

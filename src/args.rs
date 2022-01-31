@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Subcommand, Debug)]
@@ -7,30 +9,21 @@ pub enum Subcommands {
     Git {
         /// User and repository name where the template is located
         #[clap(value_name = "USER/REPO")]
-        repo: String,
+        repository: String,
         /// Project name to be used for project directory.
         #[clap(value_name = "NAME")]
         name: String,
         /// Initialize project even if directory already exists.
-        #[clap(long, short)]
-        force: bool,
-    },
-    /// List available templates. User templates can be added by placing them in ~/.pi_templates
-    #[clap(alias = "l")]
-    List,
-    /// Update pi (only works on UNIX).
-    #[clap(alias = "u")]
-    Update {
-        /// Force installation even when binary already exists.
         #[clap(long, short)]
         force: bool,
     },
     /// Use a template from a folder.
-    #[clap(alias = "i")]
-    Init {
+    #[clap(alias = "n")]
+    New {
         /// Directory containing your template, either in the current directory or in $HOME/.pi_templates/
         #[clap(value_name = "TEMPLATE_DIR")]
-        directory: String,
+        directory: PathBuf,
+        // TODO: We should probably disambiguate between the name and the output dir at one point
         /// Project name to be used for project directory.
         #[clap(value_name = "NAME")]
         name: String,
@@ -38,17 +31,18 @@ pub enum Subcommands {
         #[clap(long, short)]
         force: bool,
     },
-    /// Use a built-in template.
-    #[clap(alias = "n")]
-    New {
-        /// Template to used. Currently supported are Rust, Haskell, Idris, Elm, Python, Vimscript, Miso, and Julia.
-        template: String,
-        /// Project name to be used for project directory.
-        #[clap(value_name = "NAME")]
-        name: String,
-        /// Initialize project even if directory already exists.
+    /// List all the available templates remotely and in the $HOME/.pi_templates/ directory
+    #[clap(alias = "ls")]
+    List,
+    /// Initialize the global configuration file in $HOME/.pi.toml
+    #[clap(alias = "i")]
+    Init {
+        /// Initialize configuration file if it already exists, replacing it in the process.
         #[clap(long, short)]
         force: bool,
+        /// Skip prompts and populate the global configuration file with empty values
+        #[clap(long, short)]
+        no_prompt: bool,
     },
 }
 #[derive(Parser, Debug)]

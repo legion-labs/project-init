@@ -1,4 +1,4 @@
-# project init (pi)
+# Project Init (pi)
 
 [![Build Status](https://travis-ci.org/vmchale/project-init.svg?branch=master)](https://travis-ci.org/vmchale/project-init)
 [![](https://img.shields.io/crates/d/project-init.svg)](https://crates.io/crates/project-init)
@@ -6,84 +6,63 @@
 
 `pi` is a command-line utility to initialize projects. It is written in rust.
 
-It is intended to provide something like 
+It is intended to provide something like
 [cookiecutter](https://github.com/audreyr/cookiecutter), but faster.
 
 Reasons to use pi:
-  - You want to automate the process of starting a new project, for *all* your
-    projects.
-  - You want project initialization that's *quick*
+
+- You want to automate the process of starting a new project, for _all_ your
+  projects.
+- You want project initialization that's _quick_
 
 Reasons to use pi over cookiecutter:
-  - Templates are smaller. Define files you need in a `.toml`.
-  - *Fast*. pi is **30x faster** than cookiecutter when rendering the sample vim
-    plugin template.
-  - pi uses mustache, a logic-less language, for templates.
-  - pi can initialize a darcs, pijul, mercurial, or git repository inside your projects
-  - pi provides opinionated templates for many languages
-  - pi is extensible in Rust
+
+- Templates are smaller. Define files you need in a `.toml`.
+- _Fast_. pi is **30x faster** than cookiecutter when rendering the sample vim
+  plugin template.
+- pi uses mustache, a logic-less language, for templates.
+- pi can initialize a darcs, pijul, mercurial, or git repository inside your projects
+- pi provides opinionated templates for many languages
+- pi is extensible in Rust
 
 Reasons to not use pi over cookiecutter:
-  - cookiecutter uses [jinja](http://jinja.pocoo.org/) templates, which are far more sophisticated.
-  - pi is newer and presumably more buggy
-  - cookiecutter is extensible in Python
+
+- cookiecutter uses [jinja](http://jinja.pocoo.org/) templates, which are far more sophisticated.
+- pi is newer and presumably more buggy
+- cookiecutter is extensible in Python
 
 Benchmarks (with Haskell's [bench](https://github.com/Gabriel439/bench)):
 
-| Tool | Language | Time (vim example plugin) | Time (rust library) |
-| ---- | -------- | ------------------------- | ------------------- |
-| pi init | rust | 10.10 ms | 8.809 ms |
-| pi new | rust | 6.672 ms | 8.653 ms |
-| cookiecutter | python | 317.1 ms | 316.9 ms |
+| Tool         | Language | Time (vim example plugin) | Time (rust library) |
+| ------------ | -------- | ------------------------- | ------------------- |
+| pi init      | rust     | 10.10 ms                  | 8.809 ms            |
+| pi new       | rust     | 6.672 ms                  | 8.653 ms            |
+| cookiecutter | python   | 317.1 ms                  | 316.9 ms            |
 
 ## Installation
-
-### Script
-
-Enter the following in a command prompt:
-
-```
-curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --git vmchale/project-init
-```
-
-### Binary releases
-
-The easiest way for most users is simply to download the prebuilt binaries.
-You can find binaries for various platforms on the
-[release](https://github.com/vmchale/project-init/releases) page.
 
 ### Cargo
 
 First, install [cargo](https://rustup.rs/). Then:
 
 ```bash
- $ cargo install project_init
-```
-
-You will need to use the nightly release for this to work; if in doubt run
-
-```bash
-rustup run nightly cargo install project_init
+ $ cargo install --git https://github.com/legion-labs/project-init
 ```
 
 ## Use
 
-`pi` reads from `$HOME/.pi_templates/` *and* your current directory. So, if you
-place a template in the `$HOME/.pi_templates/idris/`, you can initialize a
-project *anywhere* with
+First, you can initialize a global `$HOME/.pi.toml` configuration file using
 
 ```bash
- $ pi init idris treesod
+$ pi init
 ```
 
-There is a repo containing pi templates
-[here](https://github.com/vmchale/pi-templates). 
-
-You can also use pi with built-in templates, viz. 
+`pi` reads from `$HOME/.pi_templates/` _and_ your current directory. So, if you
+place a template in the `$HOME/.pi_templates/rust-cli/`, you can initialize a
+project _anywhere_ with
 
 ```bash
- $ pi new haskell really-good-project
-Finished initializing project in really-good-project/
+ $ pi new rust-cli my-awesome-cli
 ```
 
 Or to fetch a template from github:
@@ -94,20 +73,20 @@ Or to fetch a template from github:
 
 ### Examples
 
-  * [haskell-ats](https://github.com/vmchale/haskell-ats) - a template for
-    Haskell/ATS polyglot projects.
-  * [madlang-miso](https://github.com/vmchale/madlang-miso) - a template for
-    frontend using [Miso](https://haskell-miso.org/) and
-    [Madlang](https://hub.darcs.net/vmchale/madlang).
-  * [ats-makefile](https://github.com/vmchale/ats-makefile) - a template for ATS
-    projects that uses a plain `Makefile`.
+- [haskell-ats](https://github.com/vmchale/haskell-ats) - a template for
+  Haskell/ATS polyglot projects.
+- [madlang-miso](https://github.com/vmchale/madlang-miso) - a template for
+  frontend using [Miso](https://haskell-miso.org/) and
+  [Madlang](https://hub.darcs.net/vmchale/madlang).
+- [ats-makefile](https://github.com/vmchale/ats-makefile) - a template for ATS
+  projects that uses a plain `Makefile`.
 
 ### Configuration
 
 Global configuration is via the `$HOME/.pi.toml` file. The following is an example:
 
 ```toml
-license = "BSD3"         # set default license to BSD3 
+license = "BSD3"         # set default license to BSD3
 version_control = "git"  # initialize new repositories with git
 version = "0.1.0"        # start new projects at version 0.1.0
 
@@ -116,8 +95,8 @@ name = "Vanessa McHale"
 email = "vanessa.mchale@reconfigure.io"
 github_username = "vmchale"
 
-# put any custom keys you want under a [[user]] table
-[[user]]
+# put any custom keys you want under a [[custom_keys]] table
+[[custom_keys]]
 website = "https://vmchale.com"
 ```
 
@@ -137,8 +116,8 @@ templates = ["vimball.txt"] # files to be processed
 version = "0.1.0"
 version_control = "darcs"
 
-# put any custom keys you want below [[user]]
-[[user]]
+# put any custom keys you want below [[custom_keys]]
+[[custom_keys]]
 vim_org_username = "vmchale"
 ```
 

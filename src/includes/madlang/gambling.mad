@@ -1,6 +1,0 @@
-:define coin
-    1.0 "heads"
-    1.0 "tails"
-
-:return
-    1.0 coin

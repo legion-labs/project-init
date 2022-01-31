@@ -7,11 +7,13 @@ pi - initialize projects from mustache templates
 
 # SYNOPSIS
 
-  pi new \<language\> \<directory\> [--force]
+pi init [--force] [--no-prompt]
 
-  pi init \<template\> \<directory\> [--force]
+pi list
 
-  pi git \<username\>/\<repo\> [--force]
+pi new \<language\> \<directory\> [--force]
+
+pi git \<username\>/\<repo\> [--force]
 
 # DESCRIPTION
 
@@ -21,10 +23,10 @@ new projects either from mustache templates or from the builtin templates.
 # OPTIONS
 
 **-h**, **--help**
-:   Display help
+: Display help
 
 **-f**, **--force**
-:   Initialize project even if the directory already exists
+: Initialize project even if the directory already exists
 
 # CONFIGURATION
 
@@ -32,21 +34,21 @@ Configuration files are located in $HOME/.pi.toml and are configured using TOML.
 
 **Keys available:**
 
-  **license** - The preferred license for new projects. Currently supported
-  licenses are BSD, BSD3, MIT, GPL, and AllRightsReserved.
+**license** - The preferred license for new projects. Currently supported
+licenses are BSD, BSD3, MIT, GPL, and AllRightsReserved.
 
-  **version_control** - The preferred version control for new projects. The
-  relevant executable must be on your PATH. Currently supported are git,
-  mercurial, darcs, and pijul.
+**version_control** - The preferred version control for new projects. The
+relevant executable must be on your PATH. Currently supported are git,
+mercurial, darcs, and pijul.
 
-  **version** - String such as "0.1.0.0" or "0.1.0" representing your preferred
-  versioning scheme.
+**version** - String such as "0.1.0.0" or "0.1.0" representing your preferred
+versioning scheme.
 
-  **author.name**
+**author.name**
 
-  **author.email**
+**author.email**
 
-  **author.github_username**
+**author.github_username**
 
 # USER TEMPLATES
 
@@ -55,22 +57,12 @@ user's $HOME/.pi_templates will be available to her anywhere.
 
 For sample templates, see:
 
-  https://github.com/vmchale/pi-templates
-
-# BUILTIN TEMPLATES
-
-Project templates for Julia, Rust, Idris, Elm, Vimscript, Python, Haskell, Miso
-, and ATS are included by default. There is also a 'plain' template which just
-contains a license and a readme.
+https://github.com/vmchale/pi-templates
 
 # EXAMPLES
 
 ```
 pi new idris permutations
-```
-
-```
-pi init ruby blog
 ```
 
 ```
